@@ -1,0 +1,26 @@
+# secrets
+.env
+*.env
+!.env.example
+
+# local docs (project-internal, not for the public repo)
+ENVIRONMENT.md
+PLAN.md
+STATE.md
+
+# tooling
+.claude/
+.vscode/
+.idea/
+
+# temp / backups
+tmp/
+backups/
+*.log
+
+# python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
