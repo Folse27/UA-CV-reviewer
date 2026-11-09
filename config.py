@@ -30,7 +30,12 @@ ADMIN_CHAT_ID = int(_req("ADMIN_CHAT_ID"))
 GROQ_TEXT_MODEL = os.getenv("GROQ_TEXT_MODEL", "openai/gpt-oss-120b")
 GROQ_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.8-27b")
 
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").rstrip("/")
+# Render injects RENDER_EXTERNAL_URL with the service's own public https URL, which
+# is only knowable after the service exists — so default to it and skip that chicken
+# and egg. Unset locally, so a local run still long-polls.
+WEBHOOK_URL = (os.getenv("WEBHOOK_URL") or os.getenv("RENDER_EXTERNAL_URL") or "").rstrip("/")
+if WEBHOOK_URL and not WEBHOOK_URL.startswith("http"):
+    WEBHOOK_URL = "https://" + WEBHOOK_URL
 PORT = int(os.getenv("PORT", "8080"))
 
 TMP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tmp")

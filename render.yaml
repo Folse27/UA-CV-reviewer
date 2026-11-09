@@ -6,8 +6,11 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python bot.py
     envVars:
+      # Matches the version this project is developed and tested on.
       - key: PYTHON_VERSION
-        value: 3.12.8
+        value: 3.14.10
+      # WEBHOOK_URL is deliberately absent: config.py falls back to the
+      # RENDER_EXTERNAL_URL that Render injects, so there is nothing to fill in.
       - key: TELEGRAM_TOKEN
         sync: false
       - key: GROQ_API_KEY
@@ -15,8 +18,6 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: ADMIN_CHAT_ID
-        sync: false
-      - key: WEBHOOK_URL
         sync: false
       - key: GROQ_TEXT_MODEL
         value: openai/gpt-oss-120b

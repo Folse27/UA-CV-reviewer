@@ -111,11 +111,14 @@ python test_smoke.py      # offline tests alone
 
 ## Deployment
 
-`render.yaml` describes the service. After the first deploy, set `WEBHOOK_URL` to the service's own URL and redeploy.
+`render.yaml` describes the service as a Render Blueprint. Point Render at the repo, supply the four secrets when prompted, and that is the entire setup.
 
-Two things to know about free instances:
+`WEBHOOK_URL` is deliberately not one of them. Render injects `RENDER_EXTERNAL_URL` with the service's own public URL, and `config.py` falls back to it — so there is no second deploy to fill in a URL you could not know in advance. Locally that variable does not exist, so the same code long-polls.
 
-- They sleep after about 15 minutes idle and take 30–60 seconds to wake. Telegram retries a failed webhook delivery, but the first message after a sleep can still be lost. Point an uptime pinger at the service URL every 10 minutes.
+Three things to know about free instances:
+
+- **Do not run a round-the-clock uptime pinger.** Render grants 750 free instance-hours per workspace per month. Keeping one service awake continuously burns roughly 730 of them, which leaves no room for any other free service and almost no margin in a 31-day month — and running out suspends every free service in the workspace until the next month. A sleeping service costs nothing.
+- A sleeping service wakes in about a minute, and Telegram retries webhook deliveries, so a message sent to a sleeping bot arrives late rather than never. If you want it responsive during your working day without spending the whole budget, ping it on a schedule that covers only those hours — 13 hours a day is about 390 hours a month.
 - The disk is wiped on every restart. Temp files are a cache only; all durable state is in Postgres. In-memory rate limits and any open 20-second batch also reset on restart.
 
 ## Known limits

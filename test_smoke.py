@@ -142,6 +142,35 @@ def test_helpers():
     assert not bot.PNG_RE.search("перевір орфографію")
 
 
+def test_webhook_url_resolution():
+    """config resolves this at import, so each case needs its own process.
+    Getting it wrong means Render binds no port and the deploy fails opaquely."""
+    import subprocess
+    import sys
+
+    def resolved(**overrides):
+        env = dict(os.environ, TELEGRAM_TOKEN="x", GROQ_API_KEY="x", RENDER_EXTERNAL_URL="")
+        env.update(DATABASE_URL="postgresql://x/x", ADMIN_CHAT_ID="-1", WEBHOOK_URL="")
+        env.update(overrides)
+        out = subprocess.run(
+            [sys.executable, "-c", "import config; print(config.WEBHOOK_URL)"],
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        assert out.returncode == 0, out.stderr
+        return out.stdout.strip()
+
+    assert resolved() == "", "nothing set must stay empty, so local runs long-poll"
+    assert resolved(RENDER_EXTERNAL_URL="https://a.onrender.com") == "https://a.onrender.com"
+    assert resolved(WEBHOOK_URL="https://b.com", RENDER_EXTERNAL_URL="https://a.onrender.com") == (
+        "https://b.com"
+    ), "an explicit WEBHOOK_URL must win"
+    assert resolved(WEBHOOK_URL="bare.example.com") == "https://bare.example.com", "scheme added"
+    assert resolved(WEBHOOK_URL="https://c.com/") == "https://c.com", "trailing slash stripped"
+
+
 def test_sweep(tmp):
     import time
 
@@ -166,5 +195,6 @@ if __name__ == "__main__":
         test_json_parsing()
         test_limits()
         test_helpers()
+        test_webhook_url_resolution()
         test_sweep(tmp)
     print("all smoke checks passed")
