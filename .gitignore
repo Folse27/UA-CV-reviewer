@@ -4,6 +4,8 @@
 !.env.example
 
 # local docs (project-internal, not for the public repo)
+architecture.png
+make_diagram.py
 ENVIRONMENT.md
 PLAN.md
 STATE.md
