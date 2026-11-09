@@ -30,6 +30,9 @@ SECRET_HINT = re.compile(r"TOKEN|KEY|SECRET|PASSWORD|DATABASE_URL|CHAT_ID", re.I
 
 MUST_BE_IGNORED = [".env", "ENVIRONMENT.md", "PLAN.md", "STATE.md", "tmp", ".venv", "__pycache__"]
 
+# Everything the live checks need; absent when run outside the project venv.
+REQUIRED_MODULES = ("dotenv", "fitz", "groq", "telegram", "psycopg")
+
 failures = []
 
 
@@ -38,6 +41,33 @@ def report(ok, name, detail=""):
     if not ok:
         failures.append(name)
     return ok
+
+
+def redact_url(url):
+    """The webhook's path IS the bot token, so only ever show scheme and host."""
+    if not url:
+        return "none registered (polling mode)"
+    m = re.match(r"(https?://[^/]+)(/.*)?$", url)
+    if not m:
+        return "<unrecognised url, withheld>"
+    return m.group(1) + ("/<redacted>" if m.group(2) else "")
+
+
+def missing_dependency():
+    """Name of the first importable-by-the-app module this interpreter lacks."""
+    for mod in REQUIRED_MODULES:
+        try:
+            __import__(mod)
+        except ModuleNotFoundError:
+            return mod
+    return None
+
+
+def venv_python():
+    sub = "Scripts" if os.name == "nt" else "bin"
+    exe = "python.exe" if os.name == "nt" else "python"
+    path = os.path.join(ROOT, ".venv", sub, exe)
+    return path if os.path.exists(path) else None
 
 
 def git(*args, binary=False):
@@ -203,7 +233,7 @@ async def live_checks():
         is_admin = member.status in ("administrator", "creator")
         report(is_admin, "Bot is admin of the alert group", f"status: {member.status}")
         info = await bot.get_webhook_info()
-        report(True, "Webhook", info.url or "none registered (polling mode)")
+        report(True, "Webhook", redact_url(info.url))
     except Exception as e:
         report(False, "Telegram", f"{type(e).__name__}: {e}")
 
@@ -216,17 +246,28 @@ def main():
     scan_history(secrets)
     check_gitignore()
     check_env_example()
+    # The safety checks above need no dependencies; everything below does.
     print("\n-- offline")
-    run_tests()
-    if live:
-        print("\n-- live services")
-        import asyncio
-
-        import config  # noqa: F401  (sets the Windows event loop policy on import)
-
-        asyncio.run(live_checks())
+    missing = missing_dependency()
+    if missing:
+        report(False, "Dependencies available", f"this interpreter has no module '{missing}'")
+        print(f"      -> running under {sys.executable}")
+        venv = venv_python()
+        if venv:
+            print(f"      -> use the project venv: {venv} {' '.join(sys.argv)}")
+        else:
+            print("      -> create a venv, then: pip install -r requirements.txt")
     else:
-        print("\n(skipping live service checks; pass --live to include them)")
+        run_tests()
+        if live:
+            print("\n-- live services")
+            import asyncio
+
+            import config  # noqa: F401  (sets the Windows event loop policy on import)
+
+            asyncio.run(live_checks())
+        else:
+            print("\n(skipping live service checks; pass --live to include them)")
 
     print()
     if failures:

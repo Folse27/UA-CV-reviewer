@@ -142,6 +142,20 @@ def test_helpers():
     assert not bot.PNG_RE.search("перевір орфографію")
 
 
+def test_webhook_url_redaction():
+    """The webhook path is the bot token, so check.py must never print it whole."""
+    import check
+
+    # Assembled at runtime so no token-shaped literal ever sits in a scanned file.
+    token = "1234567890:" + "A" * 35
+    out = check.redact_url(f"https://ua-cv-reviewer.onrender.com/{token}")
+    assert token not in out, f"token survived redaction: {out}"
+    assert out == "https://ua-cv-reviewer.onrender.com/<redacted>"
+    assert check.redact_url("") == "none registered (polling mode)"
+    assert check.redact_url("https://host.example") == "https://host.example", "no path, nothing to hide"
+    assert token not in check.redact_url(f"ftp://odd/{token}"), "unparsed input must fail closed"
+
+
 def test_webhook_url_resolution():
     """config resolves this at import, so each case needs its own process.
     Getting it wrong means Render binds no port and the deploy fails opaquely."""
@@ -195,6 +209,7 @@ if __name__ == "__main__":
         test_json_parsing()
         test_limits()
         test_helpers()
+        test_webhook_url_redaction()
         test_webhook_url_resolution()
         test_sweep(tmp)
     print("all smoke checks passed")
